@@ -1,14 +1,13 @@
-<<<<<<< HEAD
 const VERIFY_TOKEN = process.env.VERIFY_TOKEN;
 const PAGE_ACCESS_TOKEN = process.env.PAGE_ACCESS_TOKEN;
 
-// Store processed message IDs (prevents duplicate replies)
+// Prevent duplicate replies
 const processedMessages = new Set();
 
 export default async function handler(req, res) {
 
   // ============================================
-  // Facebook Webhook Verification
+  // Facebook Webhook Verification (GET)
   // ============================================
   if (req.method === "GET") {
 
@@ -16,16 +15,20 @@ export default async function handler(req, res) {
     const token = req.query["hub.verify_token"];
     const challenge = req.query["hub.challenge"];
 
-    if (mode === "subscribe" && token === VERIFY_TOKEN) {
-      console.log("Webhook verified successfully.");
+    if (
+      mode === "subscribe" &&
+      token === VERIFY_TOKEN
+    ) {
+      console.log("✅ Webhook Verified");
       return res.status(200).send(challenge);
     }
 
+    console.log("❌ Invalid Verify Token");
     return res.status(403).send("Forbidden");
   }
 
   // ============================================
-  // Receive Messages
+  // Receive Facebook Messages (POST)
   // ============================================
   if (req.method === "POST") {
 
@@ -40,303 +43,53 @@ export default async function handler(req, res) {
 
     for (const entry of body.entry) {
 
+      if (!entry.messaging) continue;
+
       for (const event of entry.messaging) {
 
         // Ignore delivery events
-        if (event.delivery) continue;
-
-        // Ignore read events
-        if (event.read) continue;
-
-        // Ignore bot's own messages
-        if (event.message?.is_echo) continue;
-
-        // Ignore non-text messages
-        if (!event.message?.text) continue;
-
-        const messageId = event.message.mid;
-
-        // Prevent duplicate replies
-        if (processedMessages.has(messageId)) {
-          console.log("Duplicate message ignored.");
+        if (event.delivery) {
+          console.log("Ignored delivery event");
           continue;
         }
 
-        processedMessages.add(messageId);
+        // Ignore read events
+        if (event.read) {
+          console.log("Ignored read event");
+          continue;
+        }
 
-        const senderId = event.sender.id;
-        const userMessage = event.message.text;
+        // Ignore message echoes (messages sent by your Page)
+        if (event.message?.is_echo) {
+          console.log("Ignored echo message");
+          continue;
+        }
 
-        console.log("User:", userMessage);
+        // Ignore non-text messages
+        if (!event.message?.text) {
+          console.log("Ignored non-text message");
+          continue;
+        }
 
-        const reply = getReply(userMessage);
+        const messageId = event.message.mid;
 
-        console.log("Bot:", reply);
+        // Prevent duplicate processing
+        if (messageId && processedMessages.has(messageId)) {
+          console.log("Duplicate message ignored");
+          continue;
+        }
 
-        await sendMessage(senderId, reply);
+        if (messageId) {
+          processedMessages.add(messageId);
 
-      }
-
-    }
-
-    return res.sendStatus(200);
-  }
-
-  return res.sendStatus(405);
-}
-
-// ============================================
-// Chatbot Responses
-// ============================================
-
-const responses = [
-
-  {
-    keywords: [
-      "hello",
-      "hi",
-      "hey",
-      "good morning",
-      "good afternoon",
-      "good evening",
-      "kamusta",
-      "kumusta"
-    ],
-    reply:
-`Hello! 👋
-
-Welcome to Trajano-Reyes & Santos Law Office.
-
-📞 Main Office: 0991-742-0621
-📞 Extension Office: 09764-072-824
-📧 Email: legal@trslawoffice.com
-
-How may we assist you today?`
-  },
-
-  {
-    keywords: [
-      "office hours",
-      "hours",
-      "open",
-      "schedule",
-      "working hours",
-      "business hours",
-      "oras",
-      "bukas",
-      "what time",
-      "when are you open"
-    ],
-    reply:
-`🕒 Office Hours
-
-Monday to Friday
-8:30 AM - 4:30 PM
-
-We are closed on weekends and holidays.`
-  },
-
-  {
-    keywords: [
-      "notary",
-      "fee",
-      "price",
-      "cost",
-      "attorney",
-      "magkano",
-      "bayad",
-    ],
-    reply:
-`💼 Notary Fee
-Basic Affidavit of Loss Ranging from ₱200 to ₱500.
-Real Estate, Title Loss Ranging from ₱500 to ₱1,000.`
-  },
-
-  {
-    keywords: [
-      "location",
-      "address",
-      "where",
-      "office",
-      "nasaan",
-      "saan",
-      "map"
-    ],
-    reply:
-`📍 Office Location
-Trajano-Reyes & Santos Law Office
-Malolos City, Bulacan
-
-Main Office: 2nd Floor, Trajano Reyes and Santos Law, No. 1, 1 T Alonzo, Santo Rosario, Street, Malolos, Bulacan
-Google Map: https://maps.app.goo.gl/6QNd7YWNEnpVcXDk7
-Extension Office: McArthur Highway,Front of City Hall, Bulihan, Malolos, Bulacan
-Google Map: https://maps.app.goo.gl/U6CT6va1QSY8saW57
-`
-
-  },
-
-  {
-    keywords: [
-      "contact",
-      "phone",
-      "telephone",
-      "number",
-      "mobile",
-      "call",
-      "email",
-      "gmail",
-      "reach"
-    ],
-    reply:
-`📞 Contact Information
-
-Main Office:
-0991-742-0621
-
-Extension Office:
-09764-072-824
-
-Email:
-legal@trslawoffice.com`
-  }
-
-];
-
-// ============================================
-// Find Matching Reply
-// ============================================
-
-function getReply(message) {
-
-  message = message.toLowerCase().trim();
-
-  for (const item of responses) {
-
-    if (item.keywords.some(keyword => message.includes(keyword))) {
-      return item.reply;
-    }
-
-  }
-
-  return `Sorry, I couldn't understand your question.
-
-You can ask me about:
-
-• Office hours
-• Consultation fee
-• Office location
-• Contact information`;
-}
-
-// ============================================
-// Send Message to Facebook
-// ============================================
-
-async function sendMessage(senderId, text) {
-
-  try {
-
-    const response = await fetch(
-      `https://graph.facebook.com/v23.0/me/messages?access_token=${PAGE_ACCESS_TOKEN}`,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-          recipient: {
-            id: senderId
-          },
-          message: {
-            text: text
+          // Keep only the latest 1000 IDs
+          if (processedMessages.size > 1000) {
+            processedMessages.clear();
           }
-        })
-      }
-    );
-
-    const result = await response.json();
-
-    console.log("Facebook Response:");
-    console.log(result);
-
-    if (!response.ok) {
-      console.error("Facebook API Error:", result);
-    }
-
-  } catch (error) {
-
-    console.error("Send Message Error:", error);
-
-  }
-
-=======
-const VERIFY_TOKEN = process.env.VERIFY_TOKEN;
-const PAGE_ACCESS_TOKEN = process.env.PAGE_ACCESS_TOKEN;
-
-// Store processed message IDs (prevents duplicate replies)
-const processedMessages = new Set();
-
-export default async function handler(req, res) {
-
-  // ============================================
-  // Facebook Webhook Verification
-  // ============================================
-  if (req.method === "GET") {
-
-    const mode = req.query["hub.mode"];
-    const token = req.query["hub.verify_token"];
-    const challenge = req.query["hub.challenge"];
-
-    if (mode === "subscribe" && token === VERIFY_TOKEN) {
-      console.log("Webhook verified successfully.");
-      return res.status(200).send(challenge);
-    }
-
-    return res.status(403).send("Forbidden");
-  }
-
-  // ============================================
-  // Receive Messages
-  // ============================================
-  if (req.method === "POST") {
-
-    const body = req.body;
-
-    console.log("Incoming Webhook:");
-    console.log(JSON.stringify(body, null, 2));
-
-    if (body.object !== "page") {
-      return res.sendStatus(404);
-    }
-
-    for (const entry of body.entry) {
-
-      for (const event of entry.messaging) {
-
-        // Ignore delivery events
-        if (event.delivery) continue;
-
-        // Ignore read events
-        if (event.read) continue;
-
-        // Ignore bot's own messages
-        if (event.message?.is_echo) continue;
-
-        // Ignore non-text messages
-        if (!event.message?.text) continue;
-
-        const messageId = event.message.mid;
-
-        // Prevent duplicate replies
-        if (processedMessages.has(messageId)) {
-          console.log("Duplicate message ignored.");
-          continue;
         }
 
-        processedMessages.add(messageId);
-
         const senderId = event.sender.id;
-        const userMessage = event.message.text;
+        const userMessage = event.message.text.trim();
 
         console.log("User:", userMessage);
 
@@ -374,7 +127,7 @@ const responses = [
       "kumusta"
     ],
     reply:
-`Hello! 👋
+      `👋 Hello!
 
 Welcome to Trajano-Reyes & Santos Law Office.
 
@@ -399,12 +152,12 @@ How may we assist you today?`
       "when are you open"
     ],
     reply:
-`🕒 Office Hours
+      `🕒 OFFICE HOURS
 
-Monday to Friday
+Monday - Friday
 8:30 AM - 4:30 PM
 
-We are closed on weekends and holidays.`
+Closed during weekends and holidays.`
   },
 
   {
@@ -412,18 +165,14 @@ We are closed on weekends and holidays.`
       "consultation",
       "consult",
       "consultation fee",
-      "fee",
-      "price",
-      "cost",
       "lawyer",
       "attorney",
       "legal advice",
-      "magkano",
-      "bayad",
-      "abogado"
+      "magkano consultation",
+      "consult fee"
     ],
     reply:
-`💼 Consultation Fee
+      `⚖️ CONSULTATION
 
 Our consultation fee starts at ₱500.
 
@@ -432,19 +181,56 @@ For complex legal matters, the fee may vary depending on the case.`
 
   {
     keywords: [
-      "location",
-      "address",
-      "where",
-      "office",
-      "nasaan",
-      "saan",
-      "map"
+      "notary",
+      "notarize",
+      "notaryo",
+      "affidavit",
+      "document",
+      "notarial",
+      "notary fee"
     ],
     reply:
-`📍 Office Location
+      `📝 NOTARY FEES
+
+• Basic Affidavit
+₱200 - ₱500
+
+• Real Estate Documents
+₱500 - ₱1,000
+
+Fees may vary depending on the document.`
+  },
+
+  {
+    keywords: [
+      "location",
+      "address",
+      "office",
+      "where",
+      "map",
+      "nasaan",
+      "saan"
+    ],
+    reply:
+      `📍 OFFICE LOCATION
 
 Trajano-Reyes & Santos Law Office
-Malolos City, Bulacan`
+
+Main Office:
+2nd Floor, No. 1 T. Alonzo St.,
+Sto. Rosario,
+Malolos City, Bulacan
+
+Google Maps:
+https://maps.app.goo.gl/6QNd7YWNEnpVcXDk7
+
+Extension Office:
+McArthur Highway,
+Front of Malolos City Hall,
+Bulihan, Malolos City
+
+Google Maps:
+https://maps.app.goo.gl/U6CT6va1QSY8saW57`
   },
 
   {
@@ -452,56 +238,101 @@ Malolos City, Bulacan`
       "contact",
       "phone",
       "telephone",
-      "number",
       "mobile",
+      "number",
       "call",
       "email",
       "gmail",
       "reach"
     ],
     reply:
-`📞 Contact Information
+      `📞 CONTACT INFORMATION
 
-Main Office:
+Main Office
 0991-742-0621
 
-Extension Office:
+Extension Office
 09764-072-824
 
-Email:
+Email
 legal@trslawoffice.com`
+  },
+
+  {
+    keywords: [
+      "services",
+      "service",
+      "offer",
+      "cases",
+      "legal services"
+    ],
+    reply:
+      `⚖️ OUR LEGAL SERVICES
+
+• Legal Consultation
+• Notarial Services
+• Civil Cases
+• Criminal Cases
+• Family Law
+• Property & Land Cases
+• Contracts & Agreements
+
+Please send us your concern for more information.`
   }
 
 ];
 
 // ============================================
-// Find Matching Reply
+// Find Best Reply
 // ============================================
 
 function getReply(message) {
 
-  message = message.toLowerCase().trim();
+  message = message
+    .toLowerCase()
+    .trim()
+    .replace(/[.,!?]/g, "");
+
+  let bestMatch = null;
+  let highestScore = 0;
 
   for (const item of responses) {
 
-    if (item.keywords.some(keyword => message.includes(keyword))) {
-      return item.reply;
+    let score = 0;
+
+    for (const keyword of item.keywords) {
+
+      if (message.includes(keyword.toLowerCase())) {
+        score++;
+      }
+
+    }
+
+    if (score > highestScore) {
+      highestScore = score;
+      bestMatch = item.reply;
     }
 
   }
 
-  return `Sorry, I couldn't understand your question.
+  if (bestMatch) {
+    return bestMatch;
+  }
+
+  return `❓ Sorry, I couldn't understand your question.
 
 You can ask me about:
 
 • Office hours
-• Consultation fee
+• Consultation
+• Notary fees
 • Office location
-• Contact information`;
+• Contact information
+• Legal services`;
 }
 
 // ============================================
-// Send Message to Facebook
+// Send Reply to Facebook
 // ============================================
 
 async function sendMessage(senderId, text) {
@@ -516,6 +347,7 @@ async function sendMessage(senderId, text) {
           "Content-Type": "application/json"
         },
         body: JSON.stringify({
+          messaging_type: "RESPONSE",
           recipient: {
             id: senderId
           },
@@ -528,18 +360,42 @@ async function sendMessage(senderId, text) {
 
     const result = await response.json();
 
-    console.log("Facebook Response:");
-    console.log(result);
+    console.log("Facebook API Response:");
+    console.log(JSON.stringify(result, null, 2));
 
     if (!response.ok) {
-      console.error("Facebook API Error:", result);
+      console.error("Facebook API Error:");
+      console.error(result);
     }
 
   } catch (error) {
 
-    console.error("Send Message Error:", error);
+    console.error("Send Message Error:");
+    console.error(error);
 
   }
 
->>>>>>> 71e8d9da1a5735c9b6b636940025efd7c69567cf
 }
+
+// ============================================
+// Helper Functions
+// ============================================
+
+// Normalize user message
+function normalizeMessage(message) {
+
+  return message
+    .toLowerCase()
+    .trim()
+    .replace(/\s+/g, " ")
+    .replace(/[.,!?]/g, "");
+
+}
+
+// Remove old processed message IDs every hour
+setInterval(() => {
+
+  processedMessages.clear();
+  console.log("Processed message cache cleared.");
+
+}, 60 * 60 * 1000);
