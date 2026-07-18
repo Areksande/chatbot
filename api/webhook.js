@@ -15,10 +15,7 @@ export default async function handler(req, res) {
     const token = req.query["hub.verify_token"];
     const challenge = req.query["hub.challenge"];
 
-    if (
-      mode === "subscribe" &&
-      token === VERIFY_TOKEN
-    ) {
+    if (mode === "subscribe" && token === VERIFY_TOKEN) {
       console.log("Webhook verified successfully.");
       return res.status(200).send(challenge);
     }
@@ -45,34 +42,22 @@ export default async function handler(req, res) {
       for (const event of entry.messaging) {
 
         // Ignore delivery events
-        if (event.delivery) {
-          console.log("Ignored delivery event");
-          continue;
-        }
+        if (event.delivery) continue;
 
         // Ignore read events
-        if (event.read) {
-          console.log("Ignored read event");
-          continue;
-        }
+        if (event.read) continue;
 
         // Ignore bot's own messages
-        if (event.message?.is_echo) {
-          console.log("Ignored echo message");
-          continue;
-        }
+        if (event.message?.is_echo) continue;
 
         // Ignore non-text messages
-        if (!event.message?.text) {
-          console.log("Ignored non-text message");
-          continue;
-        }
+        if (!event.message?.text) continue;
 
         const messageId = event.message.mid;
 
-        // Prevent duplicate processing
+        // Prevent duplicate replies
         if (processedMessages.has(messageId)) {
-          console.log("Duplicate message ignored");
+          console.log("Duplicate message ignored.");
           continue;
         }
 
@@ -94,59 +79,159 @@ export default async function handler(req, res) {
     }
 
     return res.sendStatus(200);
-
   }
 
   return res.sendStatus(405);
-
 }
 
 // ============================================
-// Keyword Replies
+// Chatbot Responses
 // ============================================
-function getReply(message) {
 
-  message = message.trim().toLowerCase();
+const responses = [
 
-  if (message.includes("hello") || message.includes("hi")) {
-    return "Hello! Welcome to Trajano-Reyes & Santos Law Office. Here is our contact information: Main office: 0991-742-0621 | Extension Office: 09764-072-824 or email us at legal@trslawoffice.com.";
+  {
+    keywords: [
+      "hello",
+      "hi",
+      "hey",
+      "good morning",
+      "good afternoon",
+      "good evening",
+      "kamusta",
+      "kumusta"
+    ],
+    reply:
+`Hello! 👋
+
+Welcome to Trajano-Reyes & Santos Law Office.
+
+📞 Main Office: 0991-742-0621
+📞 Extension Office: 09764-072-824
+📧 Email: legal@trslawoffice.com
+
+How may we assist you today?`
+  },
+
+  {
+    keywords: [
+      "office hours",
+      "hours",
+      "open",
+      "schedule",
+      "working hours",
+      "business hours",
+      "oras",
+      "bukas",
+      "what time",
+      "when are you open"
+    ],
+    reply:
+`🕒 Office Hours
+
+Monday to Friday
+8:30 AM - 4:30 PM
+
+We are closed on weekends and holidays.`
+  },
+
+  {
+    keywords: [
+      "consultation",
+      "consult",
+      "consultation fee",
+      "fee",
+      "price",
+      "cost",
+      "lawyer",
+      "attorney",
+      "legal advice",
+      "magkano",
+      "bayad",
+      "abogado"
+    ],
+    reply:
+`💼 Consultation Fee
+
+Our consultation fee starts at ₱500.
+
+For complex legal matters, the fee may vary depending on the case.`
+  },
+
+  {
+    keywords: [
+      "location",
+      "address",
+      "where",
+      "office",
+      "nasaan",
+      "saan",
+      "map"
+    ],
+    reply:
+`📍 Office Location
+
+Trajano-Reyes & Santos Law Office
+Malolos City, Bulacan`
+  },
+
+  {
+    keywords: [
+      "contact",
+      "phone",
+      "telephone",
+      "number",
+      "mobile",
+      "call",
+      "email",
+      "gmail",
+      "reach"
+    ],
+    reply:
+`📞 Contact Information
+
+Main Office:
+0991-742-0621
+
+Extension Office:
+09764-072-824
+
+Email:
+legal@trslawoffice.com`
   }
 
-  const officeHoursKeywords = [
-    "open",
-    "office hours",
-    "hours",
-    "schedule",
-    "time",
-    "working hours",
-    "business hours",
-    "oras",
-    "kailan kayo bukas",
-    "when are you open"
 ];
 
-if (officeHoursKeywords.some(keyword => message.includes(keyword))) {
-    return "Our office is open from 8:30 AM to 4:30 PM, Monday to Friday.";
-}
+// ============================================
+// Find Matching Reply
+// ============================================
 
-  if (message.includes("consultation")) {
-    return "Our consultation fee starts at ₱500.";
+function getReply(message) {
+
+  message = message.toLowerCase().trim();
+
+  for (const item of responses) {
+
+    if (item.keywords.some(keyword => message.includes(keyword))) {
+      return item.reply;
+    }
+
   }
 
-  if (message.includes("location")) {
-    return "We are located in Malolos, Bulacan.";
-  }
+  return `Sorry, I couldn't understand your question.
 
-  if (message.includes("contact")) {
-    return "You may contact us at 09123456789.";
-  }
+You can ask me about:
 
-  return "Sorry, I don't understand your question.";
+• Office hours
+• Consultation fee
+• Office location
+• Contact information`;
 }
 
 // ============================================
-// Send Reply to Facebook
+// Send Message to Facebook
 // ============================================
+
 async function sendMessage(senderId, text) {
 
   try {
