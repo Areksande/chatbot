@@ -6,98 +6,98 @@ const processedMessages = new Set();
 
 export default async function handler(req, res) {
 
-    // ============================================
-    // Facebook Webhook Verification
-    // ============================================
-    if (req.method === "GET") {
+  // ============================================
+  // Facebook Webhook Verification
+  // ============================================
+  if (req.method === "GET") {
 
-        const mode = req.query["hub.mode"];
-        const token = req.query["hub.verify_token"];
-        const challenge = req.query["hub.challenge"];
+    const mode = req.query["hub.mode"];
+    const token = req.query["hub.verify_token"];
+    const challenge = req.query["hub.challenge"];
 
-        if (
-            mode === "subscribe" &&
-            token === VERIFY_TOKEN
-        ) {
-            console.log("Webhook verified successfully.");
-            return res.status(200).send(challenge);
-        }
-
-        return res.status(403).send("Forbidden");
+    if (
+      mode === "subscribe" &&
+      token === VERIFY_TOKEN
+    ) {
+      console.log("Webhook verified successfully.");
+      return res.status(200).send(challenge);
     }
 
-    // ============================================
-    // Receive Messages
-    // ============================================
-    if (req.method === "POST") {
+    return res.status(403).send("Forbidden");
+  }
 
-        const body = req.body;
+  // ============================================
+  // Receive Messages
+  // ============================================
+  if (req.method === "POST") {
 
-        console.log("Incoming Webhook:");
-        console.log(JSON.stringify(body, null, 2));
+    const body = req.body;
 
-        if (body.object !== "page") {
-            return res.sendStatus(404);
+    console.log("Incoming Webhook:");
+    console.log(JSON.stringify(body, null, 2));
+
+    if (body.object !== "page") {
+      return res.sendStatus(404);
+    }
+
+    for (const entry of body.entry) {
+
+      for (const event of entry.messaging) {
+
+        // Ignore delivery events
+        if (event.delivery) {
+          console.log("Ignored delivery event");
+          continue;
         }
 
-        for (const entry of body.entry) {
-
-            for (const event of entry.messaging) {
-
-                // Ignore delivery events
-                if (event.delivery) {
-                    console.log("Ignored delivery event");
-                    continue;
-                }
-
-                // Ignore read events
-                if (event.read) {
-                    console.log("Ignored read event");
-                    continue;
-                }
-
-                // Ignore bot's own messages
-                if (event.message?.is_echo) {
-                    console.log("Ignored echo message");
-                    continue;
-                }
-
-                // Ignore non-text messages
-                if (!event.message?.text) {
-                    console.log("Ignored non-text message");
-                    continue;
-                }
-
-                const messageId = event.message.mid;
-
-                // Prevent duplicate processing
-                if (processedMessages.has(messageId)) {
-                    console.log("Duplicate message ignored");
-                    continue;
-                }
-
-                processedMessages.add(messageId);
-
-                const senderId = event.sender.id;
-                const userMessage = event.message.text;
-
-                console.log("User:", userMessage);
-
-                const reply = getReply(userMessage);
-
-                console.log("Bot:", reply);
-
-                await sendMessage(senderId, reply);
-
-            }
-
+        // Ignore read events
+        if (event.read) {
+          console.log("Ignored read event");
+          continue;
         }
 
-        return res.sendStatus(200);
+        // Ignore bot's own messages
+        if (event.message?.is_echo) {
+          console.log("Ignored echo message");
+          continue;
+        }
+
+        // Ignore non-text messages
+        if (!event.message?.text) {
+          console.log("Ignored non-text message");
+          continue;
+        }
+
+        const messageId = event.message.mid;
+
+        // Prevent duplicate processing
+        if (processedMessages.has(messageId)) {
+          console.log("Duplicate message ignored");
+          continue;
+        }
+
+        processedMessages.add(messageId);
+
+        const senderId = event.sender.id;
+        const userMessage = event.message.text;
+
+        console.log("User:", userMessage);
+
+        const reply = getReply(userMessage);
+
+        console.log("Bot:", reply);
+
+        await sendMessage(senderId, reply);
+
+      }
 
     }
 
-    return res.sendStatus(405);
+    return res.sendStatus(200);
+
+  }
+
+  return res.sendStatus(405);
 
 }
 
@@ -106,25 +106,42 @@ export default async function handler(req, res) {
 // ============================================
 function getReply(message) {
 
-    message = message.trim().toLowerCase();
+  message = message.trim().toLowerCase();
 
-    if (message.includes("hello") || message.includes("hi")) {
-        return "Hello! Welcome to Trajano-Reyes & Santos Law Office. Here is our contact information: Main office: 0991-742-0621 | Extension Office: 09764-072-824.";
-    }
+  if (message.includes("hello") || message.includes("hi")) {
+    return "Hello! Welcome to Trajano-Reyes & Santos Law Office. Here is our contact information: Main office: 0991-742-0621 | Extension Office: 09764-072-824 or email us at legal@trslawoffice.com.";
+  }
 
-    if (message.includes("consultation")) {
-        return "Our consultation fee starts at ₱500.";
-    }
+  const officeHoursKeywords = [
+    "open",
+    "office hours",
+    "hours",
+    "schedule",
+    "time",
+    "working hours",
+    "business hours",
+    "oras",
+    "kailan kayo bukas",
+    "when are you open"
+];
 
-    if (message.includes("location")) {
-        return "We are located in Malolos, Bulacan.";
-    }
+if (officeHoursKeywords.some(keyword => message.includes(keyword))) {
+    return "Our office is open from 8:30 AM to 4:30 PM, Monday to Friday.";
+}
 
-    if (message.includes("contact")) {
-        return "You may contact us at 09123456789.";
-    }
+  if (message.includes("consultation")) {
+    return "Our consultation fee starts at ₱500.";
+  }
 
-    return "Sorry, I don't understand your question.";
+  if (message.includes("location")) {
+    return "We are located in Malolos, Bulacan.";
+  }
+
+  if (message.includes("contact")) {
+    return "You may contact us at 09123456789.";
+  }
+
+  return "Sorry, I don't understand your question.";
 }
 
 // ============================================
@@ -132,39 +149,39 @@ function getReply(message) {
 // ============================================
 async function sendMessage(senderId, text) {
 
-    try {
+  try {
 
-        const response = await fetch(
-            `https://graph.facebook.com/v23.0/me/messages?access_token=${PAGE_ACCESS_TOKEN}`,
-            {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json"
-                },
-                body: JSON.stringify({
-                    recipient: {
-                        id: senderId
-                    },
-                    message: {
-                        text: text
-                    }
-                })
-            }
-        );
+    const response = await fetch(
+      `https://graph.facebook.com/v23.0/me/messages?access_token=${PAGE_ACCESS_TOKEN}`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          recipient: {
+            id: senderId
+          },
+          message: {
+            text: text
+          }
+        })
+      }
+    );
 
-        const result = await response.json();
+    const result = await response.json();
 
-        console.log("Facebook Response:");
-        console.log(result);
+    console.log("Facebook Response:");
+    console.log(result);
 
-        if (!response.ok) {
-            console.error("Facebook API Error:", result);
-        }
-
-    } catch (error) {
-
-        console.error("Send Message Error:", error);
-
+    if (!response.ok) {
+      console.error("Facebook API Error:", result);
     }
+
+  } catch (error) {
+
+    console.error("Send Message Error:", error);
+
+  }
 
 }
