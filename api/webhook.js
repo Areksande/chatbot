@@ -137,25 +137,18 @@ We are closed on weekends and holidays.`
 
   {
     keywords: [
-      "consultation",
-      "consult",
-      "consultation fee",
+      "notary",
       "fee",
       "price",
       "cost",
-      "lawyer",
       "attorney",
-      "legal advice",
       "magkano",
       "bayad",
-      "abogado"
     ],
     reply:
-`💼 Consultation Fee
-
-Our consultation fee starts at ₱500.
-
-For complex legal matters, the fee may vary depending on the case.`
+`💼 Notary Fee
+Basic Affidavit of Loss Ranging from ₱200 to ₱500.
+Real Estate, Title Loss Ranging from ₱500 to ₱1,000.`
   },
 
   {
@@ -170,9 +163,15 @@ For complex legal matters, the fee may vary depending on the case.`
     ],
     reply:
 `📍 Office Location
-
 Trajano-Reyes & Santos Law Office
-Malolos City, Bulacan`
+Malolos City, Bulacan
+
+Main Office: 2nd Floor, Trajano Reyes and Santos Law, No. 1, 1 T Alonzo, Santo Rosario, Street, Malolos, Bulacan
+Google Map: https://maps.app.goo.gl/6QNd7YWNEnpVcXDk7
+Extension Office: McArthur Highway,Front of City Hall, Bulihan, Malolos, Bulacan
+Google Map: https://maps.app.goo.gl/U6CT6va1QSY8saW57
+`
+
   },
 
   {
