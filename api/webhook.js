@@ -187,6 +187,10 @@ For complex legal matters, the fee may vary depending on the case.`
       "affidavit",
       "document",
       "notarial",
+      "magkano",
+      "price",
+      "presyo",
+      "how much",
       "notary fee"
     ],
     reply:
