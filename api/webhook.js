@@ -4,6 +4,139 @@ const PAGE_ACCESS_TOKEN = process.env.PAGE_ACCESS_TOKEN;
 // Prevent duplicate replies
 const processedMessages = new Set();
 
+// ============================================
+// Set Persistent Menu on Startup
+// ============================================
+async function setupPersistentMenu() {
+  try {
+    const response = await fetch(
+      `https://graph.facebook.com/v23.0/me/messenger_profile?access_token=${PAGE_ACCESS_TOKEN}`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          persistent_menu: [
+            {
+              locale: "default",
+              composer_input_disabled: false,
+              call_to_actions: [
+                {
+                  type: "postback",
+                  title: "📞 Contact Us",
+                  payload: "CONTACT_INFO"
+                },
+                {
+                  type: "postback",
+                  title: "📍 Location",
+                  payload: "LOCATION"
+                },
+                {
+                  type: "postback",
+                  title: "⚖️ Services",
+                  payload: "SERVICES"
+                },
+                {
+                  type: "postback",
+                  title: "🕒 Office Hours",
+                  payload: "OFFICE_HOURS"
+                },
+                {
+                  type: "postback",
+                  title: "💬 Consultation",
+                  payload: "CONSULTATION"
+                },
+                {
+                  type: "postback",
+                  title: "📝 Notary Fees",
+                  payload: "NOTARY_FEES"
+                }
+              ]
+            }
+          ]
+        })
+      }
+    );
+
+    const result = await response.json();
+    console.log("Persistent Menu Setup Result:", JSON.stringify(result, null, 2));
+  } catch (error) {
+    console.error("Error setting up persistent menu:", error);
+  }
+}
+
+// ============================================
+// Greeting Message on Chat Open
+// ============================================
+async function setupGreeting() {
+  try {
+    const response = await fetch(
+      `https://graph.facebook.com/v23.0/me/messenger_profile?access_token=${PAGE_ACCESS_TOKEN}`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          greeting: [
+            {
+              locale: "default",
+              text: "Welcome to Trajano-Reyes & Santos Law Office! 👋\n\nHow may we assist you today? Please choose from the menu below or type your question."
+            }
+          ]
+        })
+      }
+    );
+
+    const result = await response.json();
+    console.log("Greeting Setup Result:", JSON.stringify(result, null, 2));
+  } catch (error) {
+    console.error("Error setting up greeting:", error);
+  }
+}
+
+// ============================================
+// Get Started Button
+// ============================================
+async function setupGetStarted() {
+  try {
+    const response = await fetch(
+      `https://graph.facebook.com/v23.0/me/messenger_profile?access_token=${PAGE_ACCESS_TOKEN}`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          get_started: {
+            payload: "GET_STARTED"
+          }
+        })
+      }
+    );
+
+    const result = await response.json();
+    console.log("Get Started Setup Result:", JSON.stringify(result, null, 2));
+  } catch (error) {
+    console.error("Error setting up get started:", error);
+  }
+}
+
+// ============================================
+// Initialize Messenger Profile
+// ============================================
+async function initializeMessengerProfile() {
+  await setupPersistentMenu();
+  await setupGreeting();
+  await setupGetStarted();
+}
+
+// Call this when the server starts
+if (PAGE_ACCESS_TOKEN) {
+  initializeMessengerProfile();
+}
+
 export default async function handler(req, res) {
 
   // ============================================
@@ -46,6 +179,40 @@ export default async function handler(req, res) {
       if (!entry.messaging) continue;
 
       for (const event of entry.messaging) {
+
+        // Handle postback events (menu clicks)
+        if (event.postback) {
+          console.log("Postback received:", event.postback);
+          
+          const senderId = event.sender.id;
+          const payload = event.postback.payload;
+          
+          // Handle Get Started button
+          if (payload === "GET_STARTED") {
+            const reply = `👋 Welcome to Trajano-Reyes & Santos Law Office!
+
+Please choose an option from the menu below or type your question.
+
+📞 Contact Us
+📍 Location
+⚖️ Services
+🕒 Office Hours
+💬 Consultation
+📝 Notary Fees
+
+We're here to help!`;
+            await sendMessage(senderId, reply);
+            return res.sendStatus(200);
+          }
+          
+          // Handle menu postbacks
+          const reply = getReplyByPayload(payload);
+          if (reply) {
+            await sendMessage(senderId, reply);
+          }
+          
+          continue;
+        }
 
         // Ignore delivery events
         if (event.delivery) {
@@ -285,6 +452,89 @@ Please send us your concern for more information.`
   }
 
 ];
+
+// ============================================
+// Get Reply by Payload (for menu clicks)
+// ============================================
+
+function getReplyByPayload(payload) {
+  switch(payload) {
+    case "CONTACT_INFO":
+      return `📞 CONTACT INFORMATION
+
+Main Office
+0991-742-0621
+
+Extension Office
+09764-072-824
+
+Email
+legal@trslawoffice.com`;
+      
+    case "LOCATION":
+      return `📍 OFFICE LOCATION
+
+Trajano-Reyes & Santos Law Office
+
+Main Office:
+2nd Floor, No. 1 T. Alonzo St.,
+Sto. Rosario,
+Malolos City, Bulacan
+
+Google Maps:
+https://maps.app.goo.gl/6QNd7YWNEnpVcXDk7
+
+Extension Office:
+McArthur Highway,
+Front of Malolos City Hall,
+Bulihan, Malolos City
+
+Google Maps:
+https://maps.app.goo.gl/U6CT6va1QSY8saW57`;
+      
+    case "SERVICES":
+      return `⚖️ OUR LEGAL SERVICES
+
+• Legal Consultation
+• Notarial Services
+• Civil Cases
+• Criminal Cases
+• Family Law
+• Property & Land Cases
+• Contracts & Agreements
+
+Please send us your concern for more information.`;
+      
+    case "OFFICE_HOURS":
+      return `🕒 OFFICE HOURS
+
+Monday - Friday
+8:30 AM - 4:30 PM
+
+Closed during weekends and holidays.`;
+      
+    case "CONSULTATION":
+      return `⚖️ CONSULTATION
+
+Our consultation fee starts at ₱500.
+
+For complex legal matters, the fee may vary depending on the case.`;
+      
+    case "NOTARY_FEES":
+      return `📝 NOTARY FEES
+
+• Basic Affidavit
+₱200 - ₱500
+
+• Real Estate Documents
+₱500 - ₱1,000
+
+Fees may vary depending on the document.`;
+      
+    default:
+      return null;
+  }
+}
 
 // ============================================
 // Find Best Reply
