@@ -68,7 +68,6 @@ async function setupPersistentMenu() {
     } else {
       console.error("❌ Persistent Menu Setup Failed:", JSON.stringify(result, null, 2));
       
-      // Check for specific error types
       if (result.error) {
         console.error("Error Code:", result.error.code);
         console.error("Error Message:", result.error.message);
@@ -232,12 +231,10 @@ async function initializeMessengerProfile() {
   }
 
   try {
-    // Step 1: Delete existing settings (optional but helps with caching)
     console.log("Step 1: Cleaning up old settings...");
     await deleteMessengerProfile();
     await delay(2000);
     
-    // Step 2: Setup new settings
     console.log("Step 2: Setting up new settings...");
     await setupPersistentMenu();
     await delay(1000);
@@ -246,7 +243,6 @@ async function initializeMessengerProfile() {
     await setupGetStarted();
     await delay(2000);
     
-    // Step 3: Verify settings
     console.log("Step 3: Verifying settings...");
     await checkCurrentSettings();
     
@@ -277,7 +273,7 @@ if (PAGE_ACCESS_TOKEN) {
 export default async function handler(req, res) {
 
   // ============================================
-  // MANUAL UPDATE ENDPOINT - Call this to force update
+  // MANUAL UPDATE ENDPOINT
   // ============================================
   if (req.method === "POST" && req.url === "/api/update-menu") {
     console.log("🔄 Manual menu update requested...");
@@ -376,7 +372,7 @@ We're here to help!`;
             return res.sendStatus(200);
           }
           
-          // Handle menu postbacks
+          // Handle menu postbacks with detailed responses
           const reply = getReplyByPayload(payload);
           if (reply) {
             await sendMessage(senderId, reply);
@@ -397,7 +393,7 @@ We're here to help!`;
           continue;
         }
 
-        // Ignore message echoes (messages sent by your Page)
+        // Ignore message echoes
         if (event.message?.is_echo) {
           console.log("Ignored echo message");
           continue;
@@ -443,5 +439,448 @@ We're here to help!`;
   return res.sendStatus(405);
 }
 
-// ... (rest of your code - responses, getReplyByPayload, getReply, sendMessage, etc.)
-// Keep all your existing helper functions below
+// ============================================
+// Chatbot Responses
+// ============================================
+
+const responses = [
+  {
+    keywords: ["hello", "hi", "hey", "good morning", "good afternoon", "good evening", "kamusta", "kumusta"],
+    reply: `👋 Hello!
+
+Welcome to Trajano-Reyes & Santos Law Office.
+
+📞 Main Office: 0991-742-0621
+📞 Extension Office: 09764-072-824
+📧 Email: legal@trslawoffice.com
+
+How may we assist you today?`
+  },
+  {
+    keywords: ["office hours", "hours", "open", "schedule", "working hours", "business hours", "oras", "bukas", "what time", "when are you open"],
+    reply: `🕒 OFFICE HOURS
+
+Monday - Friday
+8:30 AM - 4:30 PM
+
+Closed during weekends and holidays.
+
+📞 For urgent concerns outside office hours, please contact:
+Main Office: 0991-742-0621`
+  },
+  {
+    keywords: ["consultation", "consult", "consultation fee", "lawyer", "attorney", "legal advice", "magkano consultation", "consult fee"],
+    reply: `⚖️ CONSULTATION SERVICES
+
+Our consultation fee starts at ₱500.
+
+For complex legal matters, the fee may vary depending on the case.
+
+📋 To schedule a consultation:
+1. Contact us at 0991-742-0621
+2. Email: legal@trslawoffice.com
+3. Visit our office during business hours
+
+Please prepare any relevant documents before your consultation.`
+  },
+  {
+    keywords: ["notary", "notarize", "notaryo", "affidavit", "document", "notarial", "magkano", "price", "presyo", "how much", "notary fee"],
+    reply: `📝 NOTARY FEES
+
+• Basic Affidavit: ₱200 - ₱500
+• Real Estate Documents: ₱500 - ₱1,000
+• Special Power of Attorney: ₱500 - ₱800
+• Deed of Sale: ₱800 - ₱1,500
+• Contract/Agreement: ₱500 - ₱1,000
+
+Fees may vary depending on the document complexity.
+
+📋 Requirements:
+1. Valid ID (Government-issued)
+2. Original documents to be notarized
+3. Photocopies of documents
+
+📍 Visit our office during business hours for notary services.`
+  },
+  {
+    keywords: ["location", "address", "office", "where", "map", "nasaan", "saan"],
+    reply: `📍 OFFICE LOCATION
+
+🏢 Trajano-Reyes & Santos Law Office
+
+MAIN OFFICE:
+2nd Floor, No. 1 T. Alonzo St.,
+Sto. Rosario,
+Malolos City, Bulacan
+
+🗺️ Google Maps:
+https://maps.app.goo.gl/6QNd7YWNEnpVcXDk7
+
+📍 EXTENSION OFFICE:
+McArthur Highway,
+Front of Malolos City Hall,
+Bulihan, Malolos City
+
+🗺️ Google Maps:
+https://maps.app.goo.gl/U6CT6va1QSY8saW57
+
+🅿️ Parking available at both locations.`
+  },
+  {
+    keywords: ["contact", "phone", "telephone", "mobile", "number", "call", "email", "gmail", "reach"],
+    reply: `📞 CONTACT INFORMATION
+
+📱 MAIN OFFICE:
+0991-742-0621
+
+📱 EXTENSION OFFICE:
+09764-072-824
+
+📧 EMAIL:
+legal@trslawoffice.com
+
+🌐 WEBSITE:
+www.trslawoffice.com
+
+💬 FACEBOOK:
+facebook.com/trslawoffice
+
+📍 Visit our office during business hours for personal consultation.`
+  },
+  {
+    keywords: ["services", "service", "offer", "cases", "legal services"],
+    reply: `⚖️ OUR LEGAL SERVICES
+
+• Legal Consultation
+• Notarial Services
+• Civil Cases
+• Criminal Cases
+• Family Law
+  - Annulment
+  - Legal Separation
+  - Child Custody
+  - Support
+• Property & Land Cases
+• Contracts & Agreements
+• Corporate Law
+• Labor Law
+• Estate Planning
+• Tax Law
+
+📞 For specific legal concerns, please contact us at 0991-742-0621 or visit our office.
+
+We are committed to providing quality legal services to our clients.`
+  }
+];
+
+// ============================================
+// Get Reply by Payload (for menu clicks) - DETAILED VERSION
+// ============================================
+
+function getReplyByPayload(payload) {
+  switch(payload) {
+    case "CONTACT_INFO":
+      return `📞 CONTACT INFORMATION
+
+📱 MAIN OFFICE:
+0991-742-0621
+
+📱 EXTENSION OFFICE:
+09764-072-824
+
+📧 EMAIL:
+legal@trslawoffice.com
+
+🌐 WEBSITE:
+www.trslawoffice.com
+
+💬 FACEBOOK:
+facebook.com/trslawoffice
+
+📍 OFFICE HOURS:
+Monday - Friday
+8:30 AM - 4:30 PM
+
+We look forward to serving you! 🙏`;
+      
+    case "LOCATION":
+      return `📍 OFFICE LOCATION
+
+🏢 Trajano-Reyes & Santos Law Office
+
+━━━━━━━━━━━━━━━━━━
+📍 MAIN OFFICE:
+2nd Floor, No. 1 T. Alonzo St.,
+Sto. Rosario,
+Malolos City, Bulacan
+
+🗺️ Google Maps:
+https://maps.app.goo.gl/6QNd7YWNEnpVcXDk7
+
+━━━━━━━━━━━━━━━━━━
+📍 EXTENSION OFFICE:
+McArthur Highway,
+Front of Malolos City Hall,
+Bulihan, Malolos City
+
+🗺️ Google Maps:
+https://maps.app.goo.gl/U6CT6va1QSY8saW57
+
+━━━━━━━━━━━━━━━━━━
+🅿️ Free parking available at both locations
+🚗 Accessible by public transportation
+
+🕒 Office Hours:
+Monday - Friday, 8:30 AM - 4:30 PM
+
+We're excited to serve you! 🌟`;
+      
+    case "SERVICES":
+      return `⚖️ OUR LEGAL SERVICES
+
+━━━━━━━━━━━━━━━━━━
+📋 GENERAL SERVICES:
+• Legal Consultation
+• Notarial Services
+• Document Review
+• Contract Drafting
+
+━━━━━━━━━━━━━━━━━━
+🏛️ CIVIL & CRIMINAL CASES:
+• Civil Litigation
+• Criminal Defense
+• Administrative Cases
+• Labor Cases
+
+━━━━━━━━━━━━━━━━━━
+👨‍👩‍👧 FAMILY LAW:
+• Annulment
+• Legal Separation
+• Child Custody
+• Support / Alimony
+• Adoption
+• Property Settlement
+
+━━━━━━━━━━━━━━━━━━
+🏢 BUSINESS & PROPERTY:
+• Corporate Law
+• Property & Land Cases
+• Contractual Disputes
+• Tax Law
+• Estate Planning
+• Wills and Succession
+
+━━━━━━━━━━━━━━━━━━
+📞 For inquiries or to schedule a consultation:
+Call: 0991-742-0621
+Email: legal@trslawoffice.com
+
+We are committed to providing professional and quality legal services. ⚖️`;
+      
+    case "OFFICE_HOURS":
+      return `🕒 OFFICE HOURS
+
+━━━━━━━━━━━━━━━━━━
+📅 REGULAR SCHEDULE:
+Monday - Friday
+8:30 AM - 4:30 PM
+
+━━━━━━━━━━━━━━━━━━
+❌ CLOSED:
+• Weekends (Saturday & Sunday)
+• Public Holidays
+• Special Non-Working Holidays
+
+━━━━━━━━━━━━━━━━━━
+📞 For urgent matters outside office hours:
+Contact: 0991-742-0621
+Email: legal@trslawoffice.com
+
+━━━━━━━━━━━━━━━━━━
+📍 Both offices follow the same schedule:
+• Main Office - Malolos City
+• Extension Office - Bulihan, Malolos City
+
+We look forward to serving you! 🙏`;
+      
+    case "CONSULTATION":
+      return `⚖️ LEGAL CONSULTATION
+
+━━━━━━━━━━━━━━━━━━
+💰 CONSULTATION FEE:
+Starts at ₱500.00
+
+*Fee may vary depending on case complexity
+
+━━━━━━━━━━━━━━━━━━
+📋 TO SCHEDULE A CONSULTATION:
+
+📞 Call us:
+Main Office: 0991-742-0621
+Extension: 09764-072-824
+
+📧 Email:
+legal@trslawoffice.com
+
+🏢 Visit us:
+Monday - Friday, 8:30 AM - 4:30 PM
+
+━━━━━━━━━━━━━━━━━━
+📄 WHAT TO BRING:
+• Valid government-issued ID
+• All relevant documents
+• Timeline of events (if applicable)
+• List of questions or concerns
+
+━━━━━━━━━━━━━━━━━━
+💡 IMPORTANT NOTE:
+For complex legal matters, an initial consultation helps us understand your case and provide appropriate guidance.
+
+We are here to help you! ⚖️`;
+      
+    case "NOTARY_FEES":
+      return `📝 NOTARY FEES & SERVICES
+
+━━━━━━━━━━━━━━━━━━
+📄 BASIC DOCUMENTS:
+• Affidavit: ₱200 - ₱500
+• Special Power of Attorney: ₱500 - ₱800
+• Deed of Sale: ₱800 - ₱1,500
+• Contract/Agreement: ₱500 - ₱1,000
+• Deed of Donation: ₱500 - ₱1,000
+• Jurat/Acknowledgment: ₱200 - ₱300
+
+━━━━━━━━━━━━━━━━━━
+🏠 REAL ESTATE:
+• Deed of Absolute Sale: ₱1,000 - ₱2,000
+• Deed of Conditional Sale: ₱1,000 - ₱2,000
+• Mortgage Documents: ₱800 - ₱1,500
+• Lease Agreements: ₱500 - ₱1,000
+
+━━━━━━━━━━━━━━━━━━
+📋 REQUIREMENTS:
+1. Valid Government-Issued ID
+2. Original Documents
+3. Photocopies of Documents
+4. For Real Estate: Tax Declaration, Title
+
+━━━━━━━━━━━━━━━━━━
+💡 IMPORTANT:
+• Fees are per document
+• Additional charges for extra pages
+• Rates may vary based on document complexity
+
+━━━━━━━━━━━━━━━━━━
+📍 Visit us during office hours:
+Monday - Friday, 8:30 AM - 4:30 PM
+
+📞 For inquiries: 0991-742-0621
+
+We provide fast and reliable notary services! 📝`;
+      
+    default:
+      return null;
+  }
+}
+
+// ============================================
+// Find Best Reply
+// ============================================
+
+function getReply(message) {
+  message = message
+    .toLowerCase()
+    .trim()
+    .replace(/[.,!?]/g, "");
+
+  let bestMatch = null;
+  let highestScore = 0;
+
+  for (const item of responses) {
+    let score = 0;
+    for (const keyword of item.keywords) {
+      if (message.includes(keyword.toLowerCase())) {
+        score++;
+      }
+    }
+    if (score > highestScore) {
+      highestScore = score;
+      bestMatch = item.reply;
+    }
+  }
+
+  if (bestMatch) {
+    return bestMatch;
+  }
+
+  return `❓ Sorry, I couldn't understand your question.
+
+You can ask me about:
+
+• Office hours
+• Consultation
+• Notary fees
+• Office location
+• Contact information
+• Legal services
+
+Or choose from the menu below.`;
+}
+
+// ============================================
+// Send Reply to Facebook
+// ============================================
+
+async function sendMessage(senderId, text) {
+  try {
+    const response = await fetch(
+      `https://graph.facebook.com/v23.0/me/messages?access_token=${PAGE_ACCESS_TOKEN}`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          messaging_type: "RESPONSE",
+          recipient: {
+            id: senderId
+          },
+          message: {
+            text: text
+          }
+        })
+      }
+    );
+
+    const result = await response.json();
+
+    console.log("Facebook API Response:");
+    console.log(JSON.stringify(result, null, 2));
+
+    if (!response.ok) {
+      console.error("Facebook API Error:");
+      console.error(result);
+    }
+  } catch (error) {
+    console.error("Send Message Error:");
+    console.error(error);
+  }
+}
+
+// ============================================
+// Helper Functions
+// ============================================
+
+function normalizeMessage(message) {
+  return message
+    .toLowerCase()
+    .trim()
+    .replace(/\s+/g, " ")
+    .replace(/[.,!?]/g, "");
+}
+
+// Remove old processed message IDs every hour
+setInterval(() => {
+  processedMessages.clear();
+  console.log("Processed message cache cleared.");
+}, 60 * 60 * 1000);
